@@ -13,9 +13,9 @@
   // service region (e.g., "westus"), and
   // the name of the file you want to run
   // through the speech recognizer.
-  var subscriptionKey = "YourSubscriptionKey";
-  var serviceRegion = "YourServiceRegion"; // e.g., "westus"
-  var filename = "YourAudioFile.wav"; // 16000 Hz, Mono
+  var subscriptionKey = "85ace6b4ecee423ca2eb70e5933e7aa2";
+  var serviceRegion = "uksouth"; // e.g., "westus"
+  var filename = "test4.wav"; // 16000 Hz, Mono
   
   // create the push stream we need for the speech sdk.
   var pushStream = sdk.AudioInputStream.createPushStream();
@@ -41,21 +41,40 @@
   // create the speech recognizer.
   var recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
   
-  // start the recognizer and wait for a result.
-  recognizer.recognizeOnceAsync(
-    function (result) {
-      console.log(result);
-  
-      recognizer.close();
-      recognizer = undefined;
-    },
-    function (err) {
-      console.trace("err - " + err);
-  
-      recognizer.close();
-      recognizer = undefined;
-    });
-  // </code>
-  
+  recognizer.recognizing = (s, e) => {
+    console.log(`RECOGNIZING: Text=${e.result.text}`);
+  };
+
+  recognizer.recognized = (s, e) => {
+    if (e.result.reason === sdk.ResultReason.RecognizedSpeech) {
+      console.log(`RECOGNIZED: Text=${e.result.text}`);
+      fs.appendFile('message.txt', e.result.text + '\n', function (err) {
+        if (err) throw err;
+      });
+    }
+    else if (e.result.reason === sdk.ResultReason.NoMatch) {
+      console.log("NOMATCH: Speech could not be recognized.");
+    }
+  };
+
+  recognizer.canceled = (s, e) => {
+    console.log(`CANCELED: Reason=${e.reason}`);
+
+    if (e.reason == CancellationReason.Error) {
+      console.log(`"CANCELED: ErrorCode=${e.errorCode}`);
+      console.log(`"CANCELED: ErrorDetails=${e.errorDetails}`);
+      console.log("CANCELED: Did you update the subscription info?");
+    }
+
+    recognizer.stopContinuousRecognitionAsync();
+  };
+
+  recognizer.sessionStopped = (s, e) => {
+    console.log("\n    Session stopped event.");
+
+    recognizer.stopContinuousRecognitionAsync();
+  };
+
+  recognizer.startContinuousRecognitionAsync();
+
 }());
-  
