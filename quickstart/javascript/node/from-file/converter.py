@@ -13,8 +13,8 @@ options = {'--verbose': 1}
 # output_file = sys.argv[2]
 # no_convert = sys.argv[3]
 
-input_file = './test.m4a'
-output_file = './test-conv.wav'
+input_file = './test4.m4a'
+output_file = './test4-conv.wav'
 
 # if(no_convert):
 #   return
