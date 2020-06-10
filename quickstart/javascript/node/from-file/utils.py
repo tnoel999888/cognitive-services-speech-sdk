@@ -264,16 +264,3 @@ def run_ffmpeg(source_path, output_path, ffmpeg_params, options):
         # print('stderr:', exc.stderr.decode('utf8'))
         print_message('exception', **{'exc': exc})
         sys.exit(1)
-
-
-
-params = { 'ar': 16000,
-           'ac': 1,
-           'ab': '16k',
-           'f': 'wav'
-         }
-
-options = {'--verbose': 1}
-
-run_ffmpeg('./test4.m4a', './test4-conv.wav', params, options)
-
