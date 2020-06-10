@@ -15,66 +15,80 @@
   // through the speech recognizer.
   var subscriptionKey = "85ace6b4ecee423ca2eb70e5933e7aa2";
   var serviceRegion = "uksouth"; // e.g., "westus"
-  var filename = "test4.wav"; // 16000 Hz, Mono
+  var filename = "test4-conv.wav"; // 16000 Hz, Mono
   
   // create the push stream we need for the speech sdk.
   var pushStream = sdk.AudioInputStream.createPushStream();
-  
-  // open the file and push it to the push stream.
-  fs.createReadStream(filename).on('data', function(arrayBuffer) {
-    pushStream.write(arrayBuffer.slice());
-  }).on('end', function() {
-    pushStream.close();
+
+  var {spawn} = require('child_process');
+
+  var input_file = process.argv[2];
+  var convert = process.argv[3]
+
+  var python;
+
+  if (convert.toLowerCase() === "true" || convert === "1") {
+    python = spawn('python', ['converter.py', input_file]);
+  } else {
+    python = spawn('python', ['no-converter.py']);
+  }
+
+  python.on('close', (code) => {
+    // open the file and push it to the push stream.
+    fs.createReadStream(filename).on('data', function(arrayBuffer) {
+      pushStream.write(arrayBuffer.slice());
+    }).on('end', function() {
+      pushStream.close();
+    });
+    
+    // we are done with the setup
+    console.log("Now recognizing from: " + filename);
+    
+    // now create the audio-config pointing to our stream and
+    // the speech config specifying the language.
+    var audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
+    var speechConfig = sdk.SpeechConfig.fromSubscription(subscriptionKey, serviceRegion);
+    
+    // setting the recognition language to English.
+    speechConfig.speechRecognitionLanguage = "en-US";
+    
+    // create the speech recognizer.
+    var recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
+    
+    recognizer.recognizing = (s, e) => {
+      console.log(`RECOGNIZING: Text=${e.result.text}`);
+    };
+
+    recognizer.recognized = (s, e) => {
+      if (e.result.reason === sdk.ResultReason.RecognizedSpeech) {
+        console.log(`RECOGNIZED: Text=${e.result.text}`);
+        fs.appendFile('message.txt', e.result.text + '\n', function (err) {
+          if (err) throw err;
+        });
+      }
+      else if (e.result.reason === sdk.ResultReason.NoMatch) {
+        console.log("NOMATCH: Speech could not be recognized.");
+      }
+    };
+
+    recognizer.canceled = (s, e) => {
+      console.log(`CANCELED: Reason=${e.reason}`);
+
+      if (e.reason == CancellationReason.Error) {
+        console.log(`"CANCELED: ErrorCode=${e.errorCode}`);
+        console.log(`"CANCELED: ErrorDetails=${e.errorDetails}`);
+        console.log("CANCELED: Did you update the subscription info?");
+      }
+
+      recognizer.stopContinuousRecognitionAsync();
+    };
+
+    recognizer.sessionStopped = (s, e) => {
+      console.log("\n    Session stopped event.");
+
+      recognizer.stopContinuousRecognitionAsync();
+    };
+
+    recognizer.startContinuousRecognitionAsync();
   });
-  
-  // we are done with the setup
-  console.log("Now recognizing from: " + filename);
-  
-  // now create the audio-config pointing to our stream and
-  // the speech config specifying the language.
-  var audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
-  var speechConfig = sdk.SpeechConfig.fromSubscription(subscriptionKey, serviceRegion);
-  
-  // setting the recognition language to English.
-  speechConfig.speechRecognitionLanguage = "en-US";
-  
-  // create the speech recognizer.
-  var recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
-  
-  recognizer.recognizing = (s, e) => {
-    console.log(`RECOGNIZING: Text=${e.result.text}`);
-  };
-
-  recognizer.recognized = (s, e) => {
-    if (e.result.reason === sdk.ResultReason.RecognizedSpeech) {
-      console.log(`RECOGNIZED: Text=${e.result.text}`);
-      fs.appendFile('message.txt', e.result.text + '\n', function (err) {
-        if (err) throw err;
-      });
-    }
-    else if (e.result.reason === sdk.ResultReason.NoMatch) {
-      console.log("NOMATCH: Speech could not be recognized.");
-    }
-  };
-
-  recognizer.canceled = (s, e) => {
-    console.log(`CANCELED: Reason=${e.reason}`);
-
-    if (e.reason == CancellationReason.Error) {
-      console.log(`"CANCELED: ErrorCode=${e.errorCode}`);
-      console.log(`"CANCELED: ErrorDetails=${e.errorDetails}`);
-      console.log("CANCELED: Did you update the subscription info?");
-    }
-
-    recognizer.stopContinuousRecognitionAsync();
-  };
-
-  recognizer.sessionStopped = (s, e) => {
-    console.log("\n    Session stopped event.");
-
-    recognizer.stopContinuousRecognitionAsync();
-  };
-
-  recognizer.startContinuousRecognitionAsync();
-
 }());
